@@ -25,3 +25,7 @@ path = "health_check.rs"
 [[test]]
 name = "cache_response"
 path = "cache_response.rs"
+
+[[test]]
+name = "verification_address"
+path = "verification_address.rs"
