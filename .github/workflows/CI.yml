@@ -2,9 +2,16 @@ name: Optimized CI
 
 on:
   push:
-    branches: [ main, develop ]
+    branches: [ main, test-ci ]
   pull_request:
     branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      debug:
+        description: 'Enable debug mode'
+        required: false
+        default: 'false'
+        type: boolean
 
 env:
   REGISTRY: ghcr.io
