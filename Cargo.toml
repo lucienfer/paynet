@@ -15,7 +15,7 @@ members = [
   "crates/starknet/types",
   # Integration tests
   "crates/tests/signer-tests",
-  "crates/tests/node-tests",
+  "crates/tests/node-tests", "crates/bin/tests",
 ]
 default-members = [
   "crates/bin/node",
@@ -30,6 +30,7 @@ default-members = [
   "crates/starknet/payment-indexer",
   "crates/starknet/liquidity-source",
   "crates/starknet/types",
+  "crates/bin/tests",
 ]
 
 
