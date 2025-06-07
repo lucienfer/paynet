@@ -32,7 +32,7 @@ struct Cli {
 enum MintCommands {
     /// Mint new tokens
     #[command(
-        about = "Mint some tokens",
+        about = "Mint some token",
         long_about = "Mint some tokens. Will require you to send some assets to the node."
     )]
     New {
