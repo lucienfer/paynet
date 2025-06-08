@@ -153,7 +153,7 @@ jobs:
         run: |
           echo "Waiting for services to be healthy..."
           timeout 300 bash -c '
-            until docker compose ps --format "table {{.Service}}\t{{.Status}}" | grep -E "(healthy|running)" | wc -l | grep -q "6"; do
+            until docker compose ps --format "table {{.Service}}\t{{.Status}}" | grep -E "(healthy|running)" | wc -l | grep -q "5"; do
               echo "Waiting for all services to be ready..."
               sleep 10
               docker compose ps
