@@ -198,7 +198,7 @@ jobs:
 
   build:
     needs: detect-changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-8-cores
     strategy:
       matrix:
         service: [explorer, node, signer, starknet-cashier, starknet-setup]
