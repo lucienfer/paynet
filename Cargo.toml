@@ -5,6 +5,7 @@ members = [
   "crates/bin/signer",
   "crates/bin/cli-wallet",
   "crates/bin/starknet-on-chain-setup",
+  "crates/bin/tests",
   "crates/db-node",
   "crates/nuts",
   "crates/wallet",
