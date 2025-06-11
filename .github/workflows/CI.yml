@@ -150,6 +150,10 @@ jobs:
       #     ROOT_KEY: "${{ env.ROOT_KEY }}"
       #   run: cargo test -p signer-tests
 
+      - name: Cleanup CLI wallet DB
+        if: always()
+        run: rm -rf /home/runner/.local/share
+
       - name: Run E2E and concurrency tests
         env:
           NODE_URL: http://localhost:10003
@@ -173,3 +177,4 @@ jobs:
         run: |
           docker compose -f docker-compose.app.yml -f docker-compose.testnet.yml down -v
           docker system prune -f
+          rm -rf /home/runner/.local/share
