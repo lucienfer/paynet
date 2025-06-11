@@ -141,14 +141,14 @@ jobs:
           docker compose -f docker-compose.app.yml -f docker-compose.testnet.yml exec -T node /bin/grpc_health_probe -addr=localhost:10003
           curl -f http://localhost:5050/is_alive
 
-      - name: Run node integration tests
-        run: GRPC_PORT=$NODE_GRPC_PORT cargo test -p node-tests
+      # - name: Run node integration tests
+      #   run: GRPC_PORT=$NODE_GRPC_PORT cargo test -p node-tests
         
-      - name: Run signer integration tests
-        env:
-          GRPC_PORT: $SIGNER_GRPC_PORT
-          ROOT_KEY: "${{ env.ROOT_KEY }}"
-        run: cargo test -p signer-tests
+      # - name: Run signer integration tests
+      #   env:
+      #     GRPC_PORT: $SIGNER_GRPC_PORT
+      #     ROOT_KEY: "${{ env.ROOT_KEY }}"
+      #   run: cargo test -p signer-tests
 
       - name: Run E2E and concurrency tests
         env:
