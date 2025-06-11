@@ -44,57 +44,6 @@ jobs:
       - name: Run clippy
         run: cargo clippy -- -D warnings
 
-  integration-test:
-    name: Integration Test
-    runs-on: ubuntu-latest
-    services:
-      db:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: 'password'
-          POSTGRES_DB: node
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd "pg_isready -U postgres"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-    steps:
-      - uses: actions/checkout@v4
-      - name: Remove unwanted files
-        run: rm -f rust-toolchain.toml
-      - uses: dtolnay/rust-toolchain@1.86.0
-      - uses: Swatinem/rust-cache@v2
-        with:
-          shared-key: "rust-cache-integration-${{ hashFiles('**/Cargo.lock') }}"
-          cache-on-failure: true
-      - uses: arduino/setup-protoc@v3
-        with:
-          version: "28.x"
-      - name: Build services for integration tests
-        run: |
-          cargo build -p signer --bin signer -p node --no-default-features --features=mock,keyset-rotation --bin node
-          cargo test --no-run -p signer-tests
-          cargo test --no-run -p node-tests
-      - name: Run integration tests
-        timeout-minutes: 1
-        run: |
-          # Signer
-          GRPC_PORT=$SIGNER_GRPC_PORT ./target/debug/signer &
-          SIGNER_RUN_PID=$!
-          while ! echo exit | nc localhost $SIGNER_GRPC_PORT; do sleep 1; done
-          GRPC_PORT=$SIGNER_GRPC_PORT cargo test -p signer-tests
-          # Node
-          GRPC_PORT=$NODE_GRPC_PORT ./target/debug/node --config ./crates/bin/node/config/local.toml &
-          NODE_RUN_PID=$!
-          while ! echo exit | nc localhost $NODE_GRPC_PORT; do sleep 1; done
-          GRPC_PORT=$NODE_GRPC_PORT cargo test -p node-tests
-          # Cleanup
-          kill $SIGNER_RUN_PID
-          kill $NODE_RUN_PID
-
   build:
     runs-on: ubuntu-latest
     strategy:
@@ -148,6 +97,11 @@ jobs:
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
+      - name: Install protoc
+        uses: arduino/setup-protoc@v3
+        with:
+          version: "28.x"
+
       - name: Log in to Container Registry
         uses: docker/login-action@v3
         with:
@@ -162,6 +116,15 @@ jobs:
             sed -i "s|image: \"node\"|image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/node:${{ github.sha }}|g" docker-compose.${{ matrix.environment }}.yml
             sed -i "s|image: \"signer\"|image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/signer:${{ github.sha }}|g" docker-compose.${{ matrix.environment }}.yml
             sed -i "s|image: \"starknet-setup\"|image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/starknet-setup:${{ github.sha }}|g" docker-compose.${{ matrix.environment }}.yml
+
+      - name: Run node integration tests
+        run: GRPC_PORT=$NODE_GRPC_PORT cargo test -p node-tests
+      
+      - name: Run signer integration tests
+        env:
+          GRPC_PORT: $SIGNER_GRPC_PORT
+          ROOT_KEY: "${{ env.ROOT_KEY }}"
+        run: cargo test -p signer-tests
 
       - name: Build test binary
         run: cargo build -p tests --bin tests
