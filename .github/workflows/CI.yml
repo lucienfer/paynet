@@ -117,15 +117,6 @@ jobs:
             sed -i "s|image: \"signer\"|image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/signer:${{ github.sha }}|g" docker-compose.${{ matrix.environment }}.yml
             sed -i "s|image: \"starknet-setup\"|image: ${{ env.REGISTRY }}/${{ env.IMAGE_PREFIX }}/starknet-setup:${{ github.sha }}|g" docker-compose.${{ matrix.environment }}.yml
 
-      - name: Run node integration tests
-        run: GRPC_PORT=$NODE_GRPC_PORT cargo test -p node-tests
-      
-      - name: Run signer integration tests
-        env:
-          GRPC_PORT: $SIGNER_GRPC_PORT
-          ROOT_KEY: "${{ env.ROOT_KEY }}"
-        run: cargo test -p signer-tests
-
       - name: Build test binary
         run: cargo build -p tests --bin tests
 
@@ -165,6 +156,15 @@ jobs:
           if [[ "${{ matrix.environment }}" == "testnet" ]]; then
             curl -f http://localhost:5050/is_alive
           fi
+
+      - name: Run node integration tests
+        run: GRPC_PORT=$NODE_GRPC_PORT cargo test -p node-tests
+        
+      - name: Run signer integration tests
+        env:
+          GRPC_PORT: $SIGNER_GRPC_PORT
+          ROOT_KEY: "${{ env.ROOT_KEY }}"
+        run: cargo test -p signer-tests
 
       - name: Run E2E and concurrency tests
         env:
