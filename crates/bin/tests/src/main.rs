@@ -62,12 +62,16 @@ pub enum Operation {
 }
 
 fn db_connection() -> Result<(Connection, PathBuf), Error> {
-    let db_path = dirs::data_dir()
-        .map(|mut dp| {
-            dp.push("cli-wallet.sqlite3");
-            dp
-        })
-        .ok_or(anyhow!("couldn't find `data_dir` on this computer"))?;
+    let db_path = if let Ok(env_path) = std::env::var("WALLET_DB_PATH") {
+        PathBuf::from(env_path)
+    } else {
+        dirs::data_dir()
+            .map(|mut dp| {
+                dp.push("cli-wallet.sqlite3");
+                dp
+            })
+            .ok_or(anyhow!("couldn't find `data_dir` on this computer"))?
+    };
     println!(
         "Using database at {:?}\n",
         db_path
