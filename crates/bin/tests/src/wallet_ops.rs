@@ -67,12 +67,14 @@ pub async fn mint(
     )
     .await?;
 
+    tx.commit()?;
+
     pay_invoice(quote.request, env).await?;
 
     loop {
         tokio::time::sleep(std::time::Duration::from_secs(1)).await;
         let state = match wallet::get_mint_quote_state(
-            &tx,
+            &db_conn,
             &mut node_client,
             STARKNET_STR.to_string(),
             quote.quote.clone(),
@@ -90,6 +92,7 @@ pub async fn mint(
         }
     }
 
+    let tx = db_conn.transaction()?;
     wallet::mint_and_store_new_tokens(
         &tx,
         &mut node_client,
@@ -100,6 +103,7 @@ pub async fn mint(
         amount,
     )
     .await?;
+    tx.commit()?;
     Ok(())
 }
 
