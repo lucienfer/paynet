@@ -118,6 +118,33 @@ jobs:
       - name: Build test binary
         run: cargo build -p tests --bin tests
 
+      - name: Start integration services (mock)
+        run: |
+          docker compose -f docker-compose.app.mock.yml up -d
+          docker compose -f docker-compose.app.mock.yml ps
+
+      - name: Wait for integration services to be healthy
+        run: |
+          echo "Waiting for services to be healthy..."
+          timeout 300 bash -c '
+            until docker compose -f docker-compose.app.mock.yml ps --format "table {{.Service}}\t{{.Status}}" | grep -E "(healthy|running)" | wc -l | grep -q "3"; do
+              echo "Waiting for mock services to be ready..."
+              sleep 10
+              docker compose -f docker-compose.app.mock.yml ps
+            done
+          '
+
+      - name: Run node integration tests
+        env:
+          GRPC_PORT: 20001
+        run: cargo test -p node-tests
+
+      - name: Run signer integration tests
+        env:
+          GRPC_PORT: 10000
+          ROOT_KEY: "${{ env.ROOT_KEY }}"
+        run: cargo test -p signer-tests
+
       - name: Start services
         run: |
           docker compose -f docker-compose.app.yml -f docker-compose.testnet.yml up -d
@@ -140,15 +167,6 @@ jobs:
           docker compose -f docker-compose.app.yml -f docker-compose.testnet.yml exec -T signer /bin/grpc_health_probe -addr=localhost:10001
           docker compose -f docker-compose.app.yml -f docker-compose.testnet.yml exec -T node /bin/grpc_health_probe -addr=localhost:10003
           curl -f http://localhost:5050/is_alive
-
-      # - name: Run node integration tests
-      #   run: GRPC_PORT=$NODE_GRPC_PORT cargo test -p node-tests
-        
-      # - name: Run signer integration tests
-      #   env:
-      #     GRPC_PORT: $SIGNER_GRPC_PORT
-      #     ROOT_KEY: "${{ env.ROOT_KEY }}"
-      #   run: cargo test -p signer-tests
 
       - name: Cleanup CLI wallet DB
         if: always()
@@ -177,5 +195,6 @@ jobs:
         if: always()
         run: |
           docker compose -f docker-compose.app.yml -f docker-compose.testnet.yml down -v
+          docker compose -f docker-compose.app.mock.yml down -v
           docker system prune -f
           rm -rf /home/runner/.local/share
