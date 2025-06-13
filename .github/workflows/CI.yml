@@ -120,28 +120,28 @@ jobs:
 
       - name: Start integration services (mock)
         run: |
-          docker compose -f docker-compose.app.mock.yml up -d
-          docker compose -f docker-compose.app.mock.yml ps
+          docker compose -f docker-compose.app-mock.yml up -d
+          docker compose -f docker-compose.app-mock.yml ps
 
       - name: Wait for integration services to be healthy
         run: |
           echo "Waiting for services to be healthy..."
           timeout 300 bash -c '
-            until docker compose -f docker-compose.app.mock.yml ps --format "table {{.Service}}\t{{.Status}}" | grep -E "(healthy|running)" | wc -l | grep -q "3"; do
+            until docker compose -f docker-compose.app-mock.yml ps --format "table {{.Service}}\t{{.Status}}" | grep -E "(healthy|running)" | wc -l | grep -q "3"; do
               echo "Waiting for mock services to be ready..."
               sleep 10
-              docker compose -f docker-compose.app.mock.yml ps
+              docker compose -f docker-compose.app-mock.yml ps
             done
           '
 
       - name: Run node integration tests
         env:
-          GRPC_PORT: 20001
+          GRPC_PORT: 10003
         run: cargo test -p node-tests
 
       - name: Run signer integration tests
         env:
-          GRPC_PORT: 10000
+          GRPC_PORT: 10001
           ROOT_KEY: "${{ env.ROOT_KEY }}"
         run: cargo test -p signer-tests
 
@@ -195,6 +195,6 @@ jobs:
         if: always()
         run: |
           docker compose -f docker-compose.app.yml -f docker-compose.testnet.yml down -v
-          docker compose -f docker-compose.app.mock.yml down -v
+          docker compose -f docker-compose.app-mock.yml down -v
           docker system prune -f
           rm -rf /home/runner/.local/share
