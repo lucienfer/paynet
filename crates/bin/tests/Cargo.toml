@@ -26,3 +26,4 @@ starknet-types = { path = "../../starknet/types" }
 starknet-liquidity-source = { workspace = true }
 nuts = { workspace = true }
 futures = {workspace = true}
+thiserror = {workspace = true}

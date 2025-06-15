@@ -1,13 +1,14 @@
-use anyhow::Error;
 use clap::Parser;
 use tracing_subscriber::EnvFilter;
 
 use crate::concurrency::run_concurrency;
 use crate::e2e::run_e2e;
+use crate::errors::Result;
 
 mod concurrency;
 mod e2e;
 mod env_variables;
+mod errors;
 mod utils;
 
 #[derive(clap::Parser)]
@@ -26,7 +27,7 @@ pub enum TestType {
 }
 
 #[tokio::main(flavor = "multi_thread")]
-async fn main() -> anyhow::Result<()> {
+async fn main() -> Result<()> {
     tracing_subscriber::fmt()
         .with_env_filter(EnvFilter::from_default_env())
         .init();

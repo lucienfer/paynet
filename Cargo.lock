@@ -4645,6 +4645,7 @@ dependencies = [
  "starknet-liquidity-source",
  "starknet-types",
  "starknet-types-core",
+ "thiserror 2.0.12",
  "tokio",
  "tonic 0.13.1",
  "tracing",

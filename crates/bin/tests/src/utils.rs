@@ -1,4 +1,4 @@
-use anyhow::{Error, anyhow};
+use anyhow::anyhow;
 use log::error;
 use starknet::{
     accounts::{Account, ConnectedAccount, ExecutionEncoding, SingleOwnerAccount},
@@ -9,16 +9,19 @@ use starknet_types_core::felt::Felt;
 use url::Url;
 
 use crate::env_variables::EnvVariables;
+use crate::errors::{Error, Result};
 
 pub fn init_account(
     env: EnvVariables,
-) -> Result<SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>, Error> {
-    let signer = LocalWallet::from(SigningKey::from_secret_scalar(Felt::from_hex(
-        &env.private_key,
-    )?));
-    let address = Felt::from_hex(&env.account_address)?;
+) -> Result<SingleOwnerAccount<JsonRpcClient<HttpTransport>, LocalWallet>> {
+    let signer = LocalWallet::from(SigningKey::from_secret_scalar(
+        Felt::from_hex(&env.private_key).map_err(|e| Error::Other(e.into()))?,
+    ));
+    let address = Felt::from_hex(&env.account_address).map_err(|e| Error::Other(e.into()))?;
 
-    let provider = JsonRpcClient::new(HttpTransport::new(Url::parse(&env.rpc_url)?));
+    let provider = JsonRpcClient::new(HttpTransport::new(
+        Url::parse(&env.rpc_url).map_err(|e| Error::Other(e.into()))?,
+    ));
 
     let account = SingleOwnerAccount::new(
         provider,
@@ -31,7 +34,7 @@ pub fn init_account(
     Ok(account)
 }
 
-pub async fn pay_invoice(invoice_json: String, env: EnvVariables) -> anyhow::Result<()> {
+pub async fn pay_invoice(invoice_json: String, env: EnvVariables) -> Result<()> {
     let account = init_account(env)?;
 
     let calls: [starknet_types::Call; 2] = serde_json::from_str(&invoice_json)?;
@@ -39,7 +42,8 @@ pub async fn pay_invoice(invoice_json: String, env: EnvVariables) -> anyhow::Res
         .execute_v3(calls.into_iter().map(Into::into).collect())
         .send()
         .await
-        .inspect_err(|e| error!("send payment tx failed: {:?}", e))?
+        .inspect_err(|e| error!("send payment tx failed: {:?}", e))
+        .map_err(|e| Error::Other(e.into()))?
         .transaction_hash;
 
     watch_tx(account.provider(), tx_hash).await?;
@@ -47,7 +51,7 @@ pub async fn pay_invoice(invoice_json: String, env: EnvVariables) -> anyhow::Res
     Ok(())
 }
 
-pub async fn watch_tx<P>(provider: P, transaction_hash: Felt) -> anyhow::Result<()>
+pub async fn watch_tx<P>(provider: P, transaction_hash: Felt) -> Result<()>
 where
     P: starknet::providers::Provider,
 {
@@ -59,10 +63,10 @@ where
                 return Ok(());
             }
             Ok(TransactionStatus::AcceptedOnL2(TransactionExecutionStatus::Reverted)) => {
-                return Err(anyhow!("tx reverted"));
+                return Err(Error::Other(anyhow!("tx reverted")));
             }
             Ok(TransactionStatus::Received) => {}
-            Ok(TransactionStatus::Rejected) => return Err(anyhow!("tx rejected")),
+            Ok(TransactionStatus::Rejected) => return Err(Error::Other(anyhow!("tx rejected"))),
             Err(ProviderError::StarknetError(StarknetError::TransactionHashNotFound)) => {}
             Err(err) => return Err(err.into()),
             Ok(TransactionStatus::AcceptedOnL1(_)) => unreachable!(),

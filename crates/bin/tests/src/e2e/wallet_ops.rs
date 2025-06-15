@@ -1,6 +1,7 @@
 use crate::env_variables::EnvVariables;
+use crate::errors::{Error, Result};
 use crate::utils::pay_invoice;
-use anyhow::{Result, anyhow};
+use anyhow::anyhow;
 use itertools::Itertools;
 use node::{MeltRequest, MintQuoteState, NodeClient, QuoteStateRequest, hash_melt_request};
 use primitive_types::U256;
@@ -10,7 +11,6 @@ use starknet_types::{Asset, STARKNET_STR, Unit};
 use starknet_types_core::felt::Felt;
 use std::time::Duration;
 use tonic::transport::Channel;
-use tracing::info;
 use wallet::types::NodeUrl;
 use wallet::{
     self,
@@ -36,10 +36,11 @@ impl WalletOps {
         let amount = amount
             .checked_mul(asset.precision())
             .ok_or(anyhow!("amount too big"))?;
-        let (amount, unit, _remainder) = asset.convert_to_amount_and_unit(amount)?;
+        let (amount, unit, _remainder) = asset
+            .convert_to_amount_and_unit(amount)
+            .map_err(|e| Error::Other(e.into()))?;
 
         let tx = self.db_conn.transaction()?;
-
         let quote = wallet::create_mint_quote(
             &tx,
             &mut self.node_client,
@@ -49,7 +50,6 @@ impl WalletOps {
             unit.as_str(),
         )
         .await?;
-
         tx.commit()?;
 
         pay_invoice(quote.request, env).await?;
@@ -66,7 +66,7 @@ impl WalletOps {
             {
                 Some(s) => s,
                 None => {
-                    info!("quote expired");
+                    println!("quote {} has expired", quote.quote);
                     return Ok(());
                 }
             };
@@ -100,7 +100,9 @@ impl WalletOps {
         let amount = amount
             .checked_mul(asset.precision())
             .ok_or(anyhow!("amount too big"))?;
-        let (amount, unit, _) = asset.convert_to_amount_and_unit(amount)?;
+        let (amount, unit, _) = asset
+            .convert_to_amount_and_unit(amount)
+            .map_err(|e| Error::Other(e.into()))?;
         let tx = self.db_conn.transaction()?;
         let proofs_ids = wallet::fetch_inputs_ids_from_db_or_node(
             &tx,
@@ -157,7 +159,9 @@ impl WalletOps {
         let amount = amount
             .checked_mul(asset.precision())
             .ok_or(anyhow!("amount too big"))?;
-        let (amount, unit, _) = asset.convert_to_amount_and_unit(amount)?;
+        let (amount, unit, _) = asset
+            .convert_to_amount_and_unit(amount)
+            .map_err(|e| Error::Other(e.into()))?;
 
         let tx = self.db_conn.transaction()?;
         let proofs_ids = wallet::fetch_inputs_ids_from_db_or_node(
@@ -173,9 +177,12 @@ impl WalletOps {
 
         let tx = self.db_conn.transaction()?;
         let inputs = wallet::load_tokens_from_db(&tx, proofs_ids).await?;
-        let payee_address = Felt::from_hex(&to)?;
+        let payee_address = Felt::from_hex(&to).map_err(|e| Error::Other(e.into()))?;
         if !starknet_types::is_valid_starknet_address(&payee_address) {
-            return Err(anyhow!("Invalid starknet address: {}", payee_address));
+            return Err(Error::Other(anyhow!(
+                "Invalid starknet address: {}",
+                payee_address
+            )));
         }
         let melt_request = MeltRequest {
             method: STARKNET_STR.to_string(),

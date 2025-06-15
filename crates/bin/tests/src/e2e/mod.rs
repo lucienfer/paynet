@@ -1,6 +1,7 @@
 use std::{path::PathBuf, str::FromStr};
 
-use anyhow::{Error, anyhow};
+use crate::errors::{Error, Result};
+use anyhow::anyhow;
 use rusqlite::Connection;
 use wallet::types::NodeUrl;
 
@@ -8,7 +9,7 @@ use crate::{e2e::wallet_ops::WalletOps, env_variables::EnvVariables};
 
 mod wallet_ops;
 
-fn db_connection() -> Result<(Connection, PathBuf), Error> {
+fn db_connection() -> Result<(Connection, PathBuf)> {
     let db_path = if let Ok(env_path) = std::env::var("WALLET_DB_PATH") {
         PathBuf::from(env_path)
     } else {
@@ -33,9 +34,9 @@ fn db_connection() -> Result<(Connection, PathBuf), Error> {
     Ok((db_conn, db_path))
 }
 
-pub async fn run_e2e(env: EnvVariables) -> anyhow::Result<(), Error> {
+pub async fn run_e2e(env: EnvVariables) -> Result<()> {
     let (mut db_conn, _db_path) = db_connection()?;
-    let node_url = NodeUrl::from_str(&env.node_url)?;
+    let node_url = NodeUrl::from_str(&env.node_url).map_err(|e| Error::Other(e.into()))?;
 
     let tx = db_conn.transaction()?;
 

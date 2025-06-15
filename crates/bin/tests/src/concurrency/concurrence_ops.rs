@@ -1,4 +1,3 @@
-use anyhow::Error;
 use futures::future::join_all;
 use node::{
     AcknowledgeRequest, BlindedMessage, GetKeysRequest, GetKeysetsRequest, MintQuoteRequest,
@@ -14,12 +13,16 @@ use nuts::{
 use starknet_types::Unit;
 use tonic::transport::Channel;
 
-use crate::{env_variables::EnvVariables, utils::pay_invoice};
+use crate::{
+    env_variables::EnvVariables,
+    errors::{Error, Result},
+    utils::pay_invoice,
+};
 
 pub async fn swap_concurrence(
     mut node_client: NodeClient<Channel>,
     env: EnvVariables,
-) -> anyhow::Result<()> {
+) -> Result<()> {
     let amount = Amount::from_i64_repr(32);
 
     let mint_quote_request = MintQuoteRequest {
@@ -47,7 +50,8 @@ pub async fn swap_concurrence(
         match response {
             Ok(response) => {
                 let response = response.into_inner();
-                let state = MintQuoteState::try_from(response.state)?;
+                let state =
+                    MintQuoteState::try_from(response.state).map_err(|e| Error::Other(e.into()))?;
                 if state == MintQuoteState::MnqsPaid {
                     break;
                 }
@@ -68,7 +72,8 @@ pub async fn swap_concurrence(
         .find(|ks| ks.active && ks.unit == Unit::MilliStrk.as_str())
         .unwrap();
     let secret = Secret::generate();
-    let (blinded_secret, r) = blind_message(secret.as_bytes(), None)?;
+    let (blinded_secret, r) =
+        blind_message(secret.as_bytes(), None).map_err(|e| Error::Other(e.into()))?;
     let mint_request = MintRequest {
         method: "starknet".to_string(),
         quote: original_mint_quote_response.quote,
@@ -103,7 +108,8 @@ pub async fn swap_concurrence(
             .find(|key| Amount::from(key.amount) == amount)
             .unwrap()
             .pubkey,
-    )?;
+    )
+    .map_err(|e| Error::Other(e.into()))?;
     let blind_signature = PublicKey::from_slice(
         &original_mint_response
             .signatures
@@ -112,7 +118,8 @@ pub async fn swap_concurrence(
             .blind_signature,
     )
     .unwrap();
-    let unblinded_signature = unblind_message(&blind_signature, &r, &node_pubkey_for_amount)?;
+    let unblinded_signature = unblind_message(&blind_signature, &r, &node_pubkey_for_amount)
+        .map_err(|e| Error::Other(e.into()))?;
     let proof = Proof {
         amount: amount.into(),
         keyset_id: active_keyset.id.clone(),
@@ -121,7 +128,8 @@ pub async fn swap_concurrence(
     };
 
     let secret = Secret::generate();
-    let (blinded_secret, _r) = blind_message(secret.as_bytes(), None)?;
+    let (blinded_secret, _r) =
+        blind_message(secret.as_bytes(), None).map_err(|e| Error::Other(e.into()))?;
     let blind_message = BlindedMessage {
         amount: amount.into(),
         keyset_id: active_keyset.id.clone(),
@@ -145,7 +153,7 @@ pub async fn swap_concurrence(
 async fn make_swap(
     mut node_client: NodeClient<Channel>,
     swap_request: SwapRequest,
-) -> Result<SwapResponse, Error> {
+) -> Result<SwapResponse> {
     let original_swap_response = node_client.swap(swap_request.clone()).await?.into_inner();
     let request_hash = hash_swap_request(&swap_request);
     node_client
